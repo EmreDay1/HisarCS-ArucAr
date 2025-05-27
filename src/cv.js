@@ -1,85 +1,9 @@
 var CV = CV || {};
 
-// Aspect ratio constants
-CV.ASPECT_RATIO = 16 / 9;
-CV.TARGET_WIDTH = 1920;
-CV.TARGET_HEIGHT = 1080;
-
 CV.Image = function(width, height, data){
-  // Enforce 16:9 aspect ratio
-  var dimensions = CV.enforceAspectRatio(width || 0, height || 0);
-  this.width = dimensions.width;
-  this.height = dimensions.height;
+  this.width = width || 0;
+  this.height = height || 0;
   this.data = data || [];
-};
-
-// Utility function to enforce 16:9 aspect ratio
-CV.enforceAspectRatio = function(width, height) {
-  if (width === 0 && height === 0) {
-    return { width: CV.TARGET_WIDTH, height: CV.TARGET_HEIGHT };
-  }
-  
-  var currentRatio = width / height;
-  var newWidth, newHeight;
-  
-  if (currentRatio > CV.ASPECT_RATIO) {
-    // Width is too large, adjust width
-    newHeight = height;
-    newWidth = Math.round(height * CV.ASPECT_RATIO);
-  } else {
-    // Height is too large, adjust height
-    newWidth = width;
-    newHeight = Math.round(width / CV.ASPECT_RATIO);
-  }
-  
-  return { width: newWidth, height: newHeight };
-};
-
-// Utility function to resize image to maintain 16:9 aspect ratio
-CV.resizeToAspectRatio = function(imageSrc, imageDst) {
-  var dimensions = CV.enforceAspectRatio(imageSrc.width, imageSrc.height);
-  
-  if (dimensions.width === imageSrc.width && dimensions.height === imageSrc.height) {
-    // No resize needed
-    imageDst.width = imageSrc.width;
-    imageDst.height = imageSrc.height;
-    imageDst.data = imageSrc.data.slice();
-    return imageDst;
-  }
-  
-  // Crop from center to maintain aspect ratio
-  var offsetX = Math.floor((imageSrc.width - dimensions.width) / 2);
-  var offsetY = Math.floor((imageSrc.height - dimensions.height) / 2);
-  
-  var src = imageSrc.data, dst = imageDst.data;
-  var srcWidth = imageSrc.width;
-  var dstIdx = 0;
-  
-  if (src.length === srcWidth * imageSrc.height * 4) {
-    // RGBA format
-    for (var y = 0; y < dimensions.height; y++) {
-      for (var x = 0; x < dimensions.width; x++) {
-        var srcIdx = ((y + offsetY) * srcWidth + (x + offsetX)) * 4;
-        dst[dstIdx++] = src[srcIdx];
-        dst[dstIdx++] = src[srcIdx + 1];
-        dst[dstIdx++] = src[srcIdx + 2];
-        dst[dstIdx++] = src[srcIdx + 3];
-      }
-    }
-  } else {
-    // Grayscale format
-    for (var y = 0; y < dimensions.height; y++) {
-      for (var x = 0; x < dimensions.width; x++) {
-        var srcIdx = (y + offsetY) * srcWidth + (x + offsetX);
-        dst[dstIdx++] = src[srcIdx];
-      }
-    }
-  }
-  
-  imageDst.width = dimensions.width;
-  imageDst.height = dimensions.height;
-  
-  return imageDst;
 };
 
 CV.grayscale = function(imageSrc, imageDst){
@@ -91,16 +15,8 @@ CV.grayscale = function(imageSrc, imageDst){
       (src[i] * 0.299 + src[i + 1] * 0.587 + src[i + 2] * 0.114 + 0.5) & 0xff;
   }
   
-  // Enforce aspect ratio
-  var dimensions = CV.enforceAspectRatio(imageSrc.width, imageSrc.height);
-  imageDst.width = dimensions.width;
-  imageDst.height = dimensions.height;
-  
-  // If aspect ratio changed, crop the result
-  if (dimensions.width !== imageSrc.width || dimensions.height !== imageSrc.height) {
-    var tempImage = new CV.Image(imageSrc.width, imageSrc.height, dst);
-    CV.resizeToAspectRatio(tempImage, imageDst);
-  }
+  imageDst.width = imageSrc.width;
+  imageDst.height = imageSrc.height;
   
   return imageDst;
 };
@@ -117,9 +33,8 @@ CV.threshold = function(imageSrc, imageDst, threshold){
     dst[i] = tab[ src[i] ];
   }
 
-  var dimensions = CV.enforceAspectRatio(imageSrc.width, imageSrc.height);
-  imageDst.width = dimensions.width;
-  imageDst.height = dimensions.height;
+  imageDst.width = imageSrc.width;
+  imageDst.height = imageSrc.height;
 
   return imageDst;
 };
@@ -137,9 +52,8 @@ CV.adaptiveThreshold = function(imageSrc, imageDst, kernelSize, threshold){
     dst[i] = tab[ src[i] - dst[i] + 255 ];
   }
 
-  var dimensions = CV.enforceAspectRatio(imageSrc.width, imageSrc.height);
-  imageDst.width = dimensions.width;
-  imageDst.height = dimensions.height;
+  imageDst.width = imageSrc.width;
+  imageDst.height = imageSrc.height;
   
   return imageDst;
 };
@@ -284,13 +198,12 @@ CV.stackBoxBlur = function(imageSrc, imageDst, kernelSize){
 
 CV.gaussianBlur = function(imageSrc, imageDst, imageMean, kernelSize){
   var kernel = CV.gaussianKernel(kernelSize);
-  var dimensions = CV.enforceAspectRatio(imageSrc.width, imageSrc.height);
 
-  imageDst.width = dimensions.width;
-  imageDst.height = dimensions.height;
+  imageDst.width = imageSrc.width;
+  imageDst.height = imageSrc.height;
   
-  imageMean.width = dimensions.width;
-  imageMean.height = dimensions.height;
+  imageMean.width = imageSrc.width;
+  imageMean.height = imageSrc.height;
 
   CV.gaussianBlurFilter(imageSrc, imageMean, kernel, true);
   CV.gaussianBlurFilter(imageMean, imageDst, kernel, false);
@@ -571,7 +484,6 @@ CV.approxPolyDP = function(contour, epsilon){
   return poly;
 };
 
-// Modified warp function to maintain 16:9 aspect ratio
 CV.warp = function(imageSrc, imageDst, contour, warpSize){
   var src = imageSrc.data, dst = imageDst.data,
       width = imageSrc.width, height = imageSrc.height,
@@ -579,18 +491,13 @@ CV.warp = function(imageSrc, imageDst, contour, warpSize){
       sx1, sx2, dx1, dx2, sy1, sy2, dy1, dy2, p1, p2, p3, p4,
       m, r, s, t, u, v, w, x, y, i, j;
   
-  // Enforce 16:9 aspect ratio for warp size
-  var dimensions = CV.enforceAspectRatio(warpSize, warpSize);
-  var finalWarpWidth = dimensions.width;
-  var finalWarpHeight = dimensions.height;
-  
-  m = CV.getPerspectiveTransform(contour, Math.max(finalWarpWidth, finalWarpHeight) - 1);
+  m = CV.getPerspectiveTransform(contour, warpSize - 1);
 
   r = m[8];
   s = m[2];
   t = m[5];
   
-  for (i = 0; i < finalWarpHeight; ++ i){
+  for (i = 0; i < warpSize; ++ i){
     r += m[7];
     s += m[1];
     t += m[4];
@@ -599,7 +506,7 @@ CV.warp = function(imageSrc, imageDst, contour, warpSize){
     v = s;
     w = t;
     
-    for (j = 0; j < finalWarpWidth; ++ j){
+    for (j = 0; j < warpSize; ++ j){
       u += m[6];
       v += m[0];
       w += m[3];
@@ -627,8 +534,8 @@ CV.warp = function(imageSrc, imageDst, contour, warpSize){
     }
   }
 
-  imageDst.width = finalWarpWidth;
-  imageDst.height = finalWarpHeight;
+  imageDst.width = warpSize;
+  imageDst.height = warpSize;
 
   return imageDst;
 };
